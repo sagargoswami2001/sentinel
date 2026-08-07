@@ -1,0 +1,43 @@
+name: Keep Render Server Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping site
+        run: |
+          URL="https://sentinel-oekg.onrender.com"
+          TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          START=$(date +%s%N)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL")
+          END=$(date +%s%N)
+          DURATION=$(( (END - START) / 1000000 ))
+
+          echo "Time: $TIME"
+          echo "Status: $STATUS"
+          echo "Response time: ${DURATION}ms"
+
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            RESULT="✅ Server is awake"
+          else
+            RESULT="⚠️ Unexpected response ($STATUS)"
+          fi
+
+          echo "### $RESULT" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Time (UTC) | Status | Response Time |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| $TIME | $STATUS | ${DURATION}ms |" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
+            exit 1
+          fi
