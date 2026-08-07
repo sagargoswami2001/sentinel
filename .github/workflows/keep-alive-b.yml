@@ -1,0 +1,50 @@
+name: Keep Render Server Alive (Offset)
+
+on:
+  schedule:
+    - cron: '5-59/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping Sentinel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake up server and record health
+        run: |
+          URL="https://sentinel-oekg.onrender.com"
+          TIME=$(TZ="Asia/Kolkata" date +"%Y-%m-%d %H:%M:%S IST")
+
+          START=$(date +%s%N)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL")
+          END=$(date +%s%N)
+          DURATION=$(( (END - START) / 1000000 ))
+
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "Server responded with $STATUS in ${DURATION}ms — up and running."
+            EMOJI="🟢"
+            RESULT="Server is alive"
+          else
+            echo "Server responded with $STATUS — something's off."
+            EMOJI="🔴"
+            RESULT="Server did not respond as expected"
+          fi
+
+          {
+            echo "## $EMOJI Sentinel Health Check"
+            echo ""
+            echo "**$RESULT**"
+            echo ""
+            echo "| Checked At (IST) | Status Code | Response Time |"
+            echo "|---|---|---|"
+            echo "| $TIME | $STATUS | ${DURATION}ms |"
+            echo ""
+            echo "_Next ping in ~10 minutes._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
+            exit 1
+          fi
