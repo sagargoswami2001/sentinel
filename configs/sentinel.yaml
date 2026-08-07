@@ -1,0 +1,6 @@
+defaults:
+    timeout_seconds: 10
+    expect_status: 200
+notify:
+    channels: []
+targets: []

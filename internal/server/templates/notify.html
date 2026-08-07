@@ -1,0 +1,33 @@
+{{define "notify"}}
+<form id="notify-add" class="notify-add" autocomplete="off">
+  <select name="platform" class="platform-select" title="choose a platform">
+    {{range .Platforms}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+  </select>
+  <input name="url" required spellcheck="false"
+         placeholder="paste the webhook URL for the selected platform">
+  <button type="submit" class="btn primary">Add</button>
+</form>
+
+{{if .Channels}}
+<ul class="channel-list">
+  {{range .Channels}}
+  <li>
+    <span class="chan-name">{{.Platform}}</span>
+    <span class="chan-url">{{.URL}}</span>
+    <button type="button" class="chan-remove" data-url="{{.URL}}"
+            title="remove this channel">✕</button>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="hint">No channels yet — pick a platform, paste its webhook URL, click <strong>Add</strong>.</p>
+{{end}}
+
+<div class="notify-actions">
+  <button type="button" id="test-alert" class="btn">Send test alert</button>
+  <span id="notify-status"></span>
+</div>
+<p class="hint">Alerts go to <strong>every channel above</strong> for
+  <strong>every target on the board</strong> — including URLs you add later.
+  🔴 on failure, 🟢 on recovery.</p>
+{{end}}

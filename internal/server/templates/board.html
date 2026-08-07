@@ -1,0 +1,71 @@
+{{define "board"}}
+{{if .Statuses}}
+<section class="summary {{if eq .UpCount .Total}}all-up{{else}}has-down{{end}}">
+  <div class="big">{{.UpCount}}<span class="dim">/{{.Total}}</span></div>
+  <div class="summary-text">
+    {{if eq .UpCount .Total}}All systems operational{{else}}Some systems are down{{end}}
+    <span class="dim">· last check {{.LastRun}}</span>
+  </div>
+</section>
+
+<section class="grid">
+  {{range .Statuses}}
+    {{template "card" .}}
+  {{end}}
+</section>
+{{else}}
+<section class="empty">
+  <div class="empty-icon">🛰️</div>
+  <h2>Nothing being monitored yet</h2>
+  <p>Paste any URL above — a website, <code>192.168.1.10:3000</code>,
+     <code>localhost:5000</code>, or <code>tcp://host:22</code> —
+     and click <strong>+ Monitor</strong> to get started.</p>
+</section>
+{{end}}
+
+{{if .Incidents}}
+<section class="incidents">
+  <h3>Recent events</h3>
+  <ul>
+    {{range .Incidents}}
+    <li class="{{if .Down}}inc-down{{else}}inc-up{{end}}">
+      <span class="inc-time">{{.Time}}</span>
+      <span class="inc-state">{{if .Down}}▼ DOWN{{else}}▲ UP{{end}}</span>
+      <span class="inc-name">{{.Name}}</span>
+      <span class="inc-detail">{{.Detail}}</span>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}
+
+{{define "card"}}
+<article class="card {{if .Up}}up{{else}}down{{end}}">
+  <div class="card-head">
+    <span class="dot"></span>
+    <h2>{{.Name}}</h2>
+    <span class="badge">{{if .Up}}UP{{else}}DOWN{{end}}</span>
+    {{if .Removable}}
+    <button class="remove" data-url="{{.URL}}" title="Stop monitoring {{.Name}}">✕</button>
+    {{end}}
+  </div>
+  <a class="url" href="{{.URL}}" target="_blank" rel="noopener">{{.URL}}</a>
+
+  {{if .Spark}}{{.Spark}}{{end}}
+
+  {{if .Ticks}}
+  <div class="ticks" title="recent checks, oldest → newest">
+    {{range .Ticks}}<span class="tick {{if .}}ok{{else}}bad{{end}}"></span>{{end}}
+  </div>
+  {{end}}
+
+  <dl class="stats">
+    <div><dt>Status</dt><dd>{{.Code}}</dd></div>
+    <div><dt>Latency</dt><dd>{{.Latency}}</dd></div>
+    <div><dt>Uptime</dt><dd>{{if .Uptime}}{{.Uptime}}{{else}}-{{end}}</dd></div>
+    <div><dt>TLS cert</dt><dd {{if .CertWarn}}class="warn"{{end}}>{{.Cert}}</dd></div>
+  </dl>
+  {{if .Detail}}<div class="detail">{{.Detail}}</div>{{end}}
+</article>
+{{end}}

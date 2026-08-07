@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinel — Status</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">🛰️</span>
+      <h1>Sentinel</h1>
+    </div>
+    <div class="meta"><span class="live-dot"></span>live · checking every {{.Interval}}</div>
+  </header>
+
+  <form id="quickbar" class="quickbar" autocomplete="off">
+    <input id="quick-url" name="url" required spellcheck="false"
+           placeholder="paste anything — https://mysite.com · 192.168.1.10:3000 · localhost:5000 · tcp://vm-host:22">
+    <button type="submit" class="btn">Check once</button>
+    <button type="button" id="monitor-btn" class="btn primary">+ Monitor</button>
+  </form>
+
+  <details class="settings">
+    <summary>🔔 Notifications
+      {{if .Channels}}<span class="on-badge">{{len .Channels}} channel{{if gt (len .Channels) 1}}s{{end}}</span>{{end}}
+    </summary>
+    <div id="notify-panel">
+      {{template "notify" .}}
+    </div>
+  </details>
+
+  <section id="quick-result"></section>
+
+  <main id="board">
+    {{template "board" .}}
+  </main>
+
+  <script>
+    const urlInput = document.getElementById("quick-url");
+    const quickResult = document.getElementById("quick-result");
+    const board = document.getElementById("board");
+
+    async function post(path) {
+      const res = await fetch(path, {
+        method: "POST",
+        body: new URLSearchParams({ url: urlInput.value }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.text();
+    }
+
+    // "Check once" — instant one-off check, result shown above the board.
+    document.getElementById("quickbar").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      quickResult.innerHTML =
+        `<div class="checking">checking ${urlInput.value} …</div>`;
+      try {
+        quickResult.innerHTML = await post("/partial/quickcheck");
+      } catch (err) {
+        quickResult.innerHTML = `<div class="checking">error: ${err.message}</div>`;
+      }
+    });
+
+    // "+ Monitor" — add the URL to the watched list permanently.
+    document.getElementById("monitor-btn").addEventListener("click", async () => {
+      if (!urlInput.reportValidity()) return;
+      try {
+        board.innerHTML = await post("/partial/monitor");
+        quickResult.innerHTML = "";
+        urlInput.value = "";
+      } catch (err) {
+        quickResult.innerHTML = `<div class="checking">error: ${err.message}</div>`;
+      }
+    });
+
+    // "✕" on any card — stop monitoring that target. Event delegation:
+    // one listener on the board handles every card, including future ones.
+    board.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".remove");
+      if (!btn) return;
+      if (!confirm(`Stop monitoring ${btn.dataset.url}?`)) return;
+      const res = await fetch("/partial/remove", {
+        method: "POST",
+        body: new URLSearchParams({ url: btn.dataset.url }),
+      });
+      if (res.ok) board.innerHTML = await res.text();
+    });
+
+    // Notification panel. Its content is re-rendered by the server on
+    // every add/remove, so listeners live on the container (delegation).
+    const notifyPanel = document.getElementById("notify-panel");
+    const notifyStatus = () => notifyPanel.querySelector("#notify-status");
+
+    notifyPanel.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const res = await fetch("/partial/notify", {
+        method: "POST",
+        body: new URLSearchParams(new FormData(e.target)),
+      });
+      if (res.ok) notifyPanel.innerHTML = await res.text();
+      else notifyStatus().textContent = await res.text();
+    });
+
+    notifyPanel.addEventListener("click", async (e) => {
+      const rm = e.target.closest(".chan-remove");
+      if (rm) {
+        const res = await fetch("/partial/notify-remove", {
+          method: "POST",
+          body: new URLSearchParams({ url: rm.dataset.url }),
+        });
+        if (res.ok) notifyPanel.innerHTML = await res.text();
+        return;
+      }
+      if (e.target.id === "test-alert") {
+        notifyStatus().textContent = "sending…";
+        const res = await fetch("/api/test-alert", { method: "POST" });
+        notifyStatus().textContent = await res.text();
+      }
+    });
+
+    // Press "/" anywhere to jump to the URL bar, like GitHub's search.
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "/" && document.activeElement !== urlInput) {
+        e.preventDefault();
+        urlInput.focus();
+      }
+    });
+
+    // Mirror overall status into the browser tab title.
+    function syncTitle() {
+      const big = board.querySelector(".summary .big");
+      if (big) {
+        const down = board.querySelector(".summary.has-down");
+        document.title = `${down ? "🔴" : "🟢"} ${big.textContent.trim()} up · Sentinel`;
+      }
+    }
+    syncTitle();
+
+    // Live updates: re-fetch the server-rendered board fragment and
+    // swap it in — no page reload, no flicker.
+    setInterval(async () => {
+      try {
+        const res = await fetch("/partial/board");
+        if (res.ok) { board.innerHTML = await res.text(); syncTitle(); }
+      } catch (_) { /* server unreachable; keep last known state */ }
+    }, 5000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+.git
+.github
+.gitignore
+README.md
+LICENSE
+Dockerfile
+.dockerignore
+sentinel
+sentinel.exe
+bin/
+dist/
