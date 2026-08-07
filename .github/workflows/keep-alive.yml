@@ -10,9 +10,10 @@ permissions:
 
 jobs:
   ping:
+    name: Ping Sentinel
     runs-on: ubuntu-latest
     steps:
-      - name: Ping site
+      - name: Wake up server and record health
         run: |
           URL="https://sentinel-oekg.onrender.com"
           TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
@@ -22,21 +23,27 @@ jobs:
           END=$(date +%s%N)
           DURATION=$(( (END - START) / 1000000 ))
 
-          echo "Time: $TIME"
-          echo "Status: $STATUS"
-          echo "Response time: ${DURATION}ms"
-
           if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
-            RESULT="✅ Server is awake"
+            echo "Server responded with $STATUS in ${DURATION}ms — up and running."
+            EMOJI="🟢"
+            RESULT="Server is alive"
           else
-            RESULT="⚠️ Unexpected response ($STATUS)"
+            echo "Server responded with $STATUS — something's off."
+            EMOJI="🔴"
+            RESULT="Server did not respond as expected"
           fi
 
-          echo "### $RESULT" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Time (UTC) | Status | Response Time |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| $TIME | $STATUS | ${DURATION}ms |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## $EMOJI Sentinel Health Check"
+            echo ""
+            echo "**$RESULT**"
+            echo ""
+            echo "| Checked At (UTC) | Status Code | Response Time |"
+            echo "|---|---|---|"
+            echo "| $TIME | $STATUS | ${DURATION}ms |"
+            echo ""
+            echo "_Next ping in ~10 minutes._"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$STATUS" -lt 200 ] || [ "$STATUS" -ge 400 ]; then
             exit 1
